@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -21,7 +22,7 @@ export default function Edit() {
   const params: any = useLocalSearchParams();
 
   const [title, setTitle] = useState(params.title || "");
-  const [mediaType, setMediaType] = useState(params.mediaType || "");
+  const [mediaType, setMediaType] = useState(params.mediaType || "movie");
   const [rating, setRating] = useState(params.rating || "");
 
   // Toast
@@ -37,8 +38,32 @@ export default function Edit() {
   /* ================= UPDATE ================= */
 
   const update = async () => {
+    /* Validation */
+
+    if (!title.trim()) {
+      showToast("⚠️ Title is required");
+      return;
+    }
+
+    if (!rating) {
+      showToast("⚠️ Rating is required");
+      return;
+    }
+
+    const rate = Number(rating);
+
+    if (isNaN(rate) || rate < 1 || rate > 5) {
+      showToast("⭐ Rating must be between 1 and 5");
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        showToast("🔒 Session expired, login again");
+        return;
+      }
 
       const res = await fetch(`${API_URL}/api/entries/${id}`, {
         method: "PUT",
@@ -49,7 +74,7 @@ export default function Edit() {
         body: JSON.stringify({
           title,
           mediaType,
-          rating: Number(rating),
+          rating: rate,
         }),
       });
 
@@ -57,17 +82,11 @@ export default function Edit() {
         showToast("✅ Entry updated successfully");
         setTimeout(() => router.replace("/home"), 800);
       } else {
-        showToast("❌ Update failed");
+        showToast("❌ Failed to save changes");
       }
     } catch {
-      showToast("🌐 Connection problem");
+      showToast("🌐 Server connection problem");
     }
-  };
-
-  /* ================= DELETE ================= */
-
-  const remove = async () => {
-    showToast("⚠️ Long press delete from Home");
   };
 
   /* ================= UI ================= */
@@ -96,6 +115,7 @@ export default function Edit() {
       <BlurView intensity={900} tint="dark" style={styles.card}>
         <Text style={styles.title}>Edit Entry</Text>
 
+        {/* Title */}
         <TextInput
           style={styles.input}
           value={title}
@@ -104,14 +124,20 @@ export default function Edit() {
           placeholderTextColor="#aaa"
         />
 
-        <TextInput
-          style={styles.input}
-          value={mediaType}
-          onChangeText={setMediaType}
-          placeholder="Media Type"
-          placeholderTextColor="#aaa"
-        />
+        {/* Media Type Picker */}
+        <View style={styles.pickerBox}>
+          <Picker
+            selectedValue={mediaType}
+            onValueChange={(v) => setMediaType(v)}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item label="🎬 Movie" value="movie" />
+            <Picker.Item label="📘 Book" value="book" />
+          </Picker>
+        </View>
 
+        {/* Rating */}
         <TextInput
           style={styles.input}
           keyboardType="numeric"
@@ -212,6 +238,25 @@ const styles = StyleSheet.create({
     color: "white",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
+  },
+
+  /* Picker */
+
+  pickerBox: {
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    marginBottom: 16,
+
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+
+    overflow: "hidden",
+  },
+
+  picker: {
+    color: "white",
+    height: 52,
   },
 
   button: {
