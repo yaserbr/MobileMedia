@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Dimensions,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -18,9 +18,17 @@ const { width, height } = Dimensions.get("window");
 
 const API_URL = "https://medialogger-6jne.onrender.com";
 
+const RADIUS = 18;
+
 export default function Home() {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Toast states
+  const [toastVisible, setToastVisible] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const router = useRouter();
 
@@ -44,38 +52,55 @@ export default function Home() {
 
       setEntries(Array.isArray(data) ? data : []);
     } catch {
-      Alert.alert("Error", "Failed to load data");
+      console.log("Load error");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= DELETE ================= */
+  /* ================= DELETE (TOAST) ================= */
 
-  const deleteEntry = async (id: string) => {
-    Alert.alert("Confirm", "Delete this item?", [
-      { text: "Cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem("token");
+  const showDeleteToast = (id: string) => {
+    setSelectedId(id);
+    setToastVisible(true);
 
-            await fetch(`${API_URL}/api/entries/${id}`, {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
 
-            loadEntries();
-          } catch {
-            Alert.alert("Error", "Delete failed");
-          }
+  const hideToast = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setToastVisible(false);
+      setSelectedId(null);
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedId) return;
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      await fetch(`${API_URL}/api/entries/${selectedId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      },
-    ]);
+      });
+
+      loadEntries();
+    } catch {
+      console.log("Delete error");
+    } finally {
+      hideToast();
+    }
   };
 
   /* ================= LOGOUT ================= */
@@ -83,6 +108,15 @@ export default function Home() {
   const logout = async () => {
     await AsyncStorage.removeItem("token");
     router.replace("/");
+  };
+
+  /* ================= MEDIA ICON ================= */
+
+  const getMediaType = (type: string) => {
+    if (type === "movie") return "🎬 Movie";
+    if (type === "book") return "📘 Book";
+
+    return type;
   };
 
   /* ================= ITEM ================= */
@@ -96,13 +130,13 @@ export default function Home() {
           params: { id: item._id },
         })
       }
-      onLongPress={() => deleteEntry(item._id)}
+      onLongPress={() => showDeleteToast(item._id)}
       activeOpacity={0.85}
     >
       <Text style={styles.title}>{item.title}</Text>
 
       <View style={styles.row}>
-        <Text style={styles.type}>{item.mediaType}</Text>
+        <Text style={styles.type}>{getMediaType(item.mediaType)}</Text>
         <Text style={styles.rating}>⭐ {item.rating}/5</Text>
       </View>
 
@@ -126,7 +160,7 @@ export default function Home() {
       <View style={[styles.shape, styles.shape3]} />
 
       {/* Header */}
-      <BlurView intensity={300} tint="dark" style={styles.header}>
+      <BlurView intensity={90} tint="dark" style={styles.header}>
         <Text style={styles.logo}>MediaLogger</Text>
 
         <TouchableOpacity onPress={logout}>
@@ -168,6 +202,42 @@ export default function Home() {
           <Text style={styles.fabText}>＋</Text>
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* ===== DELETE TOAST ===== */}
+      {toastVisible && (
+        <Animated.View
+          style={[
+            styles.toast,
+            {
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-10, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <BlurView intensity={80} tint="dark" style={styles.toastInner}>
+            <Text style={styles.toastText}>
+              Delete this item?
+            </Text>
+
+            <View style={styles.toastButtons}>
+              <TouchableOpacity onPress={hideToast}>
+                <Text style={styles.cancel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={confirmDelete}>
+                <Text style={styles.delete}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </BlurView>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -227,13 +297,16 @@ const styles = StyleSheet.create({
 
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 22,
+
+    borderRadius: RADIUS,
+    overflow: "hidden",
 
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
 
     backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
   },
 
@@ -256,18 +329,19 @@ const styles = StyleSheet.create({
     marginTop: 14,
 
     padding: 18,
-    borderRadius: 22,
+    borderRadius: RADIUS,
+    overflow: "hidden",
 
     backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
 
     shadowColor: "#4A7CFF",
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
-    shadowRadius: 18,
+    shadowRadius: 14,
 
-    elevation: 10,
+    elevation: 80,
   },
 
   title: {
@@ -314,7 +388,7 @@ const styles = StyleSheet.create({
 
     width: 66,
     height: 66,
-    borderRadius: 35,
+    borderRadius: 33,
 
     overflow: "hidden",
 
@@ -335,6 +409,60 @@ const styles = StyleSheet.create({
   fabText: {
     color: "white",
     fontSize: 32,
+    fontWeight: "700",
+  },
+
+  /* ===== TOAST ===== */
+
+  toast: {
+    position: "absolute",
+
+    top: "50%",
+    transform: [{ translateY: -60 }],
+
+    width: width * 0.85,
+
+    alignSelf: "center",
+
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+
+    overflow: "hidden",
+
+    zIndex: 100,
+  },
+
+  toastInner: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+
+    backgroundColor: "rgba(255,255,255,0.12)",
+
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+
+  toastText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  toastButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+
+  cancel: {
+    color: "#AAA",
+    fontWeight: "600",
+  },
+
+  delete: {
+    color: "#FF4A6E",
     fontWeight: "700",
   },
 });

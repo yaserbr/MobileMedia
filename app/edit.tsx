@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Dimensions,
   StyleSheet,
   Text,
@@ -24,6 +23,14 @@ export default function Edit() {
   const [title, setTitle] = useState(params.title || "");
   const [mediaType, setMediaType] = useState(params.mediaType || "");
   const [rating, setRating] = useState(params.rating || "");
+
+  // Toast
+  const [toast, setToast] = useState("");
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2500);
+  };
 
   const id = params.id;
 
@@ -47,51 +54,33 @@ export default function Edit() {
       });
 
       if (res.ok) {
-        Alert.alert("Success", "Entry updated successfully ✅");
-        router.replace("/home");
+        showToast("✅ Entry updated successfully");
+        setTimeout(() => router.replace("/home"), 800);
       } else {
-        Alert.alert("Error", "Update failed");
+        showToast("❌ Update failed");
       }
     } catch {
-      Alert.alert("Error", "Connection problem");
+      showToast("🌐 Connection problem");
     }
   };
 
   /* ================= DELETE ================= */
 
   const remove = async () => {
-    Alert.alert("Delete", "Are you sure you want to delete this entry?", [
-      { text: "Cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem("token");
-
-            const res = await fetch(`${API_URL}/api/entries/${id}`, {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            if (res.ok) {
-              Alert.alert("Deleted", "Entry removed ✅");
-              router.replace("/home");
-            } else {
-              Alert.alert("Error", "Delete failed");
-            }
-          } catch {
-            Alert.alert("Error", "Connection problem");
-          }
-        },
-      },
-    ]);
+    showToast("⚠️ Long press delete from Home");
   };
+
+  /* ================= UI ================= */
 
   return (
     <View style={styles.container}>
+      {/* Toast */}
+      {toast !== "" && (
+        <BlurView intensity={0} tint="dark" style={styles.toast}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </BlurView>
+      )}
+
       {/* Background */}
       <LinearGradient
         colors={["#020B1C", "#071A3A", "#02040A"]}
@@ -139,16 +128,6 @@ export default function Edit() {
             style={styles.buttonInner}
           >
             <Text style={styles.buttonText}>Save Changes</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Delete Button */}
-        <TouchableOpacity style={styles.button} onPress={remove}>
-          <LinearGradient
-            colors={["#FF4D6D", "#C9184A"]}
-            style={styles.buttonInner}
-          >
-            <Text style={styles.buttonText}>Delete</Text>
           </LinearGradient>
         </TouchableOpacity>
       </BlurView>
@@ -215,7 +194,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
-    elevation: 20,
   },
 
   title: {
@@ -252,5 +230,33 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  /* ===== Toast ===== */
+
+  toast: {
+    position: "absolute",
+    top: 60,
+
+    width: width * 0.85,
+
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+
+    borderRadius: 18,
+
+    backgroundColor: "rgba(255,255,255,0.12)",
+
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+
+    zIndex: 100,
+  },
+
+  toastText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

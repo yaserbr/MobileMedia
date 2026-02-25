@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
   Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,14 +22,20 @@ export default function Add() {
   const [type, setType] = useState("movie");
   const [rating, setRating] = useState("");
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState("");
 
   const router = useRouter();
 
   /* ================= ADD ENTRY ================= */
 
+  const showToast = (msg: string): void => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2500);
+  };
+
   const addEntry = async () => {
     if (!title || !rating) {
-      Alert.alert("Error", "Please enter all fields");
+      showToast("⚠️ Please enter title and rating");
       return;
     }
 
@@ -55,13 +60,13 @@ export default function Add() {
       const data = await res.json();
 
       if (res.ok) {
-        Alert.alert("Success", "Entry added successfully ✅");
-        router.back();
+        showToast("✅ Entry added successfully");
+        setTimeout(() => router.back(), 800);
       } else {
-        Alert.alert("Error", data.error || "Failed to add entry");
+        showToast(data.error || "❌ Failed to add entry");
       }
     } catch {
-      Alert.alert("Connection Error", "Failed to connect to server");
+      showToast("🌐 Server connection error");
     } finally {
       setLoading(false);
     }
@@ -71,31 +76,38 @@ export default function Add() {
 
   return (
     <View style={styles.container}>
-      {/* Gradient Background */}
+      {/* Toast */}
+      {toast !== "" && (
+        <BlurView intensity={0} tint="dark" style={[styles.toast,{ borderRadius: 28 }]}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </BlurView>
+      )}
+
+      {/* Background */}
       <LinearGradient
         colors={["#0A1A3C", "#050B1A", "#02040A"]}
         style={styles.background}
       />
 
-      {/* Floating Shapes */}
+      {/* Shapes */}
       <View style={[styles.shape, styles.shape1]} />
       <View style={[styles.shape, styles.shape2]} />
       <View style={[styles.shape, styles.shape3]} />
 
       {/* Glass Card */}
-      <BlurView intensity={90} tint="dark" style={styles.card}>
-        <Text style={styles.title}>Add New Media</Text>
+      <BlurView intensity={0} tint="dark" style={[styles.card, { borderRadius: 18 }]}>
+        <Text style={styles.title}>Add New Media 🎬📘</Text>
 
-        {/* Input */}
+        {/* Title */}
         <TextInput
-          placeholder="Movie or Book Title"
+          placeholder="🎯 Movie or Book Title"
           placeholderTextColor="#aaa"
           style={styles.input}
           value={title}
           onChangeText={setTitle}
         />
 
-        {/* Picker */}
+        {/* Type */}
         <View style={styles.pickerBox}>
           <Picker
             selectedValue={type}
@@ -110,7 +122,7 @@ export default function Add() {
 
         {/* Rating */}
         <TextInput
-          placeholder="Rating (1 - 5)"
+          placeholder="⭐ Rating (1 - 5)"
           placeholderTextColor="#aaa"
           style={styles.input}
           value={rating}
@@ -118,21 +130,27 @@ export default function Add() {
           keyboardType="numeric"
         />
 
-        {/* Button */}
+        {/* Glass Button */}
         <TouchableOpacity
-          style={styles.button}
           onPress={addEntry}
           disabled={loading}
           activeOpacity={0.85}
+          style={styles.glassBtn}
         >
-          <LinearGradient
-            colors={["#4A7CFF", "#2951FF"]}
-            style={styles.buttonInner}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? "Saving..." : "Add"}
+          <BlurView intensity={120} tint="light" style={[styles.glassInner, { borderRadius: 18 }]}>
+            {/* Blue Gradient */}
+            <LinearGradient
+              colors={["#0F1F4B", "#1E3A8A", "#2563EB"]}
+              style={styles.glassGradient}
+            />
+
+            {/* Highlight */}
+            <View style={styles.glassHighlight} />
+
+            <Text style={styles.glassText}>
+              {loading ? "⏳ Saving..." : "💾 Add Entry"}
             </Text>
-          </LinearGradient>
+          </BlurView>
         </TouchableOpacity>
       </BlurView>
     </View>
@@ -155,7 +173,34 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  /* ===== Floating Shapes ===== */
+  /* ===== Toast ===== */
+
+  toast: {
+    position: "absolute",
+    top: 60,
+
+    width: width * 0.85,
+
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+
+    borderRadius: 18,
+
+    backgroundColor: "rgba(255,255,255,0.12)",
+
+    borderWidth: 1,
+
+    zIndex: 100,
+  },
+
+  toastText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  /* ===== Shapes ===== */
 
   shape: {
     position: "absolute",
@@ -187,12 +232,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#00D4FF",
   },
 
-  /* ===== Glass Card ===== */
+  /* ===== Card ===== */
 
   card: {
     width: width * 0.88,
     padding: 28,
-    borderRadius: 28,
+    borderRadius: 18,
     alignItems: "center",
 
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -202,17 +247,14 @@ const styles = StyleSheet.create({
     shadowColor: "#4A7CFF",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.35,
-    shadowRadius: 20,
-
-    elevation: 20,
+    shadowRadius: 18,
   },
 
   title: {
     color: "white",
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 28,
-    letterSpacing: 0.5,
+    marginBottom: 25,
   },
 
   /* ===== Inputs ===== */
@@ -248,24 +290,47 @@ const styles = StyleSheet.create({
     height: 52,
   },
 
-  /* ===== Button ===== */
+  /* ===== Glass Button ===== */
 
-  button: {
+  glassBtn: {
     width: "100%",
-    borderRadius: 16,
+    borderRadius: 32,
     overflow: "hidden",
-    marginTop: 10,
+    marginTop: 14,
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 120,
   },
 
-  buttonInner: {
-    paddingVertical: 16,
+  glassInner: {
+    overflow: "hidden",
+    paddingVertical: 17,
     alignItems: "center",
+    justifyContent: "center",
+
+    borderWidth: 0,
+    borderColor: "rgba(255,255,255,0.4)",
   },
 
-  buttonText: {
+  glassGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  glassHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "45%",
+
+  },
+
+  glassText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: 0.4,
   },
 });
